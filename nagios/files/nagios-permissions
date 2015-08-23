@@ -1,0 +1,4 @@
+# Defaults env_keep +="rvm_bin_path GEM_HOME IRBRC MY_RUBY_HOME rvm_path rvm_prefix rvm_version GEM_PATH rvm_sudo_secure_path RUBY_VERSION rvm_ruby_string rvm_delete_flag"
+
+nagios ALL=(ALL) NOPASSWD:/usr/lib/nagios/plugins/,/home/pierre/.rvm/gems/ruby-2.0.0-p643@rails401/bin/passenger-status
+
