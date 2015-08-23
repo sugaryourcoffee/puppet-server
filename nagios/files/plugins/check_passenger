@@ -8,13 +8,13 @@ PROGNAME=$(basename $0)
 
 # Messages for status checks
 declare -A MESSAGES
-MESSAGES=(["Requests"]="Passenger requests %s - %s requests in queue\n" \
-          ["Load"]="Passenger load %s - CPU %s\n" \
-          ["Memory"]="Passenger memory %s - %s used\n" \
-          ["Accesses"]="Passenger accesses % s - %s accesses processed\n" \
-          ["Uptime"]="Passenger uptime %s - %s\n" \
-          ["Frequency"]="Passenger frequency %s - %s accesses per second\n" \
-          ["Sessions"]="Passenger sessions %s - %s sessions\n")
+MESSAGES=(["Requests"]="Passenger %s requests %s - %s requests in queue\n" \
+          ["Load"]="Passenger %s load %s - CPU %s\n" \
+          ["Memory"]="Passenger %s memory %s - %s used\n" \
+          ["Accesses"]="Passenger %s accesses % s - %s accesses processed\n" \
+          ["Uptime"]="Passenger %s uptime %s - %s\n" \
+          ["Frequency"]="Passenger %s frequency %s - %s accesses per second\n" \
+          ["Sessions"]="Passenger %s sessions %s - %s sessions\n")
 
 # Converts a time like 2D 5H 10M 1S into seconds
 # usage: to_seconds nD nH nM nS
@@ -44,7 +44,6 @@ init() {
   PROGNAME=$(basename $0)
   export PATH=/home/pierre/.rvm/bin:$PATH
   source /home/pierre/.rvm/environments/ruby-2.0.0-p643@rails401
-  return
 }
 
 usage() {
@@ -78,7 +77,7 @@ app_status() {
 }
 
 # Check the status for the specified value
-# usage: check_status_for value warning critical action
+# usage: check_status_for value warning critical action app
 check_status_for() {
   if [[ (-n $2) && (-n $3) ]]; then
 
@@ -87,17 +86,17 @@ check_status_for() {
     if [[ $4 == "Uptime" ]]; then
       value=$(to_seconds $(echo $1 | grep -P '[^\s]'))
     else
-      value=$(echo $1 | grep -oP '\d+')
+      value=$(echo $1 | grep -"oP" '\d+')
     fi
 
     if [[ $value -lt $2 ]]; then
-      printf "${MESSAGES[$4]}" "OK" "$1"
+      printf "${MESSAGES[$4]}" "$5" "OK" "$1"
       exit 0
     elif [[ $value -lt $3 ]]; then
-      printf "${MESSAGES[$4]}" "WARNING" "$1"
+      printf "${MESSAGES[$4]}" "$5" "WARNING" "$1"
       exit 1
     elif [[ $value -ge $3 ]]; then
-      printf "${MESSAGES[$4]}" "CRITICAL" "$1"
+      printf "${MESSAGES[$4]}" "$5" "CRITICAL" "$1"
       exit 2
     fi
   else
@@ -136,14 +135,14 @@ process_frequency() {
     | cut -d' ' -f 8)
   local seconds=$(to_seconds $(echo $uptime | grep -P '[^\s]'))
   #check_status_for $(bc <<< "scale=5;$accesses/$seconds") $2 $3
-  check_status_for $(( accesses / seconds )) $2 $3 $4
+  check_status_for $(( accesses / seconds )) $2 $3 $4 $1
 }
 
 # Process the action
 # usage: process_action app token position warning critical action
 process_action() {
   local value=$(app_status "$1" | grep "$2" | tr -s ' ' | cut -d' ' -f $3)
-  check_status_for "$value" $4 $5 $6
+  check_status_for "$value" $4 $5 $6 $1
 }
 
 action=
