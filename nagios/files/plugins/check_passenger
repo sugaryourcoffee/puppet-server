@@ -5,16 +5,18 @@ DAYS=(24*60*60)
 HOURS=(60*60)
 MINUTES=(60)
 PROGNAME=$(basename $0)
+PERF_REGEX="s/\\n//g and s/ *(?=:)//g and s/ {2,}/, /g and s/ *\* */ /g"
 
 # Messages for status checks
 declare -A MESSAGES
-MESSAGES=(["Requests"]="Passenger %s requests %s - %s requests in queue\n" \
-          ["Load"]="Passenger %s load %s - CPU %s\n" \
-          ["Memory"]="Passenger %s memory %s - %s used\n" \
-          ["Accesses"]="Passenger %s accesses % s - %s accesses processed\n" \
-          ["Uptime"]="Passenger %s uptime %s - %s\n" \
-          ["Frequency"]="Passenger %s frequency %s - %s accesses per second\n" \
-          ["Sessions"]="Passenger %s sessions %s - %s sessions\n")
+MESSAGES=(\
+  ["Requests"]="Passenger %s requests %s - %s requests in queue | %s\n" \
+  ["Load"]="Passenger %s load %s - CPU %s | %s\n" \
+  ["Memory"]="Passenger %s memory %s - %s used | %s\n" \
+  ["Accesses"]="Passenger %s accesses % s - %s accesses processed | %s\n" \
+  ["Uptime"]="Passenger %s uptime %s - %s | %s\n" \
+  ["Frequency"]="Passenger %s frequency %s - %s accesses per second | %s\n" \
+  ["Sessions"]="Passenger %s sessions %s - %s sessions | %s\n")
 
 # Converts a time like 2D 5H 10M 1S into seconds
 # usage: to_seconds nD nH nM nS
@@ -77,7 +79,7 @@ app_status() {
 }
 
 # Check the status for the specified value
-# usage: check_status_for value warning critical action app
+# usage: check_status_for value warning critical action app performance_data
 check_status_for() {
   if [[ (-n $2) && (-n $3) ]]; then
 
@@ -90,18 +92,24 @@ check_status_for() {
     fi
 
     if [[ $value -lt $2 ]]; then
-      printf "${MESSAGES[$4]}" "$5" "OK" "$1"
+      printf "${MESSAGES[$4]}" "$5" "OK" "$1" "$6"
       exit 0
     elif [[ $value -lt $3 ]]; then
-      printf "${MESSAGES[$4]}" "$5" "WARNING" "$1"
+      printf "${MESSAGES[$4]}" "$5" "WARNING" "$1" "$6"
       exit 1
     elif [[ $value -ge $3 ]]; then
-      printf "${MESSAGES[$4]}" "$5" "CRITICAL" "$1"
+      printf "${MESSAGES[$4]}" "$5" "CRITICAL" "$1" "$6"
       exit 2
     fi
   else
     echo "$1"
   fi
+}
+
+# Extract the performance data from the app_status
+# usage: performance_data app_status
+performance_data() {
+  echo $(echo "$1" | perl -pe "$PERF_REGEX")
 }
 
 # Parse the command provided on the command line
@@ -129,20 +137,27 @@ parse_critical() {
 # Process the frequency action
 # usage: process_frequency app warning critical action
 process_frequency() {
-  local uptime=$(app_status "$1" | grep "Uptime" | tr -s ' ' \
+  local status=$(app_status "$1")
+#  local uptime=$(app_status "$1" | grep "Uptime" | tr -s ' ' \
+  local uptime=$(echo "$status" | grep "Uptime" | tr -s ' ' \
     | cut -d' ' -f 10-13)
-  local accesses=$(app_status "$1" | grep "Processed" | tr -s ' ' \
+#  local accesses=$(app_status "$1" | grep "Processed" | tr -s ' ' \
+  local accesses=$(echo "$status" | grep "Processed" | tr -s ' ' \
     | cut -d' ' -f 8)
   local seconds=$(to_seconds $(echo $uptime | grep -P '[^\s]'))
   #check_status_for $(bc <<< "scale=5;$accesses/$seconds") $2 $3
-  check_status_for $(( accesses / seconds )) $2 $3 $4 $1
+  check_status_for $(( accesses / seconds )) $2 $3 $4 $1 \
+    "$(performance_data "$status")"
 }
 
 # Process the action
 # usage: process_action app token position warning critical action
 process_action() {
-  local value=$(app_status "$1" | grep "$2" | tr -s ' ' | cut -d' ' -f $3)
-  check_status_for "$value" $4 $5 $6 $1
+#  local regex="s/\\n//g and s/ *(?=:)//g and s/ {2,}/, /g and s/ *\* */ /g"
+  local status=$(app_status "$1")
+#  local perf_data=$(echo "$status" | perl -pe "$regex")
+  local value=$(echo "$status" | grep "$2" | tr -s ' ' | cut -d' ' -f $3)
+  check_status_for "$value" $4 $5 $6 $1 "$(performance_data "$status")"
 }
 
 action=
